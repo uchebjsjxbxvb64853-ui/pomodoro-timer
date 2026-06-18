@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍅 番茄钟 - Pomodoro Timer</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --card: #1a1a2e;
+    --text: #e0e0e0;
+    --text-secondary: #8888aa;
+    --pomodoro: #e94560;
+    --short-break: #4ecca3;
+    --long-break: #3b82f6;
+    --btn-bg: #252540;
+    --btn-hover: #303058;
+    --border: #2a2a45;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .container {
+    width: 420px;
+    padding: 30px;
+    background: var(--card);
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+
+  /* ---- Mode Tabs ---- */
+  .tabs {
+    display: flex;
+    background: var(--btn-bg);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 28px;
+    gap: 4px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 10px 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.25s;
+    letter-spacing: 0.5px;
+  }
+
+  .tab.active {
+    background: var(--btn-hover);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .tab.active.pomodoro  { color: var(--pomodoro); }
+  .tab.active.short     { color: var(--short-break); }
+  .tab.active.long      { color: var(--long-break); }
+
+  /* ---- Timer Ring ---- */
+  .timer-wrapper {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    margin: 0 auto 28px;
+  }
+
+  svg {
+    transform: rotate(-90deg);
+    width: 260px; height: 260px;
+  }
+
+  .bg-circle {
+    fill: none;
+    stroke: var(--btn-bg);
+    stroke-width: 10;
+  }
+
+  .progress-ring {
+    fill: none;
+    stroke: var(--pomodoro);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.35s linear, stroke 0.3s;
+  }
+
+  .progress-ring.short { stroke: var(--short-break); }
+  .progress-ring.long  { stroke: var(--long-break); }
+
+  .timer-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .time-display {
+    font-size: 56px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
+    letter-spacing: -2px;
+    line-height: 1;
+  }
+
+  .time-status {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ---- Controls ---- */
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .btn {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    background: var(--btn-bg);
+    color: var(--text);
+  }
+
+  .btn:hover  { background: var(--btn-hover); transform: scale(1.05); }
+  .btn:active { transform: scale(0.95); }
+
+  .btn-play {
+    width: 64px; height: 64px;
+    font-size: 26px;
+    background: var(--pomodoro);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(233,68,96,0.35);
+  }
+  .btn-play:hover  { background: #f05070; }
+  .btn-play.running { background: #ffaa00; box-shadow: 0 6px 20px rgba(255,170,0,0.35); }
+
+  /* ---- Stats ---- */
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .stat {
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ---- Settings ---- */
+  .settings-toggle {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 6px;
+    margin-top: 8px;
+    transition: color 0.2s;
+  }
+  .settings-toggle:hover { color: #fff; }
+
+  .settings {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.35s ease, margin 0.35s ease;
+    margin-top: 0;
+  }
+  .settings.open {
+    max-height: 200px;
+    margin-top: 16px;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .setting-row input {
+    width: 70px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text);
+    font-size: 14px;
+    text-align: center;
+    font-family: inherit;
+    outline: none;
+    transition: border 0.2s;
+  }
+  .setting-row input:focus {
+    border-color: var(--pomodoro);
+  }
+
+  .setting-row input.t-short:focus { border-color: var(--short-break); }
+  .setting-row input.t-long:focus  { border-color: var(--long-break); }
+
+  /* ---- Toast ---- */
+  .toast {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-120px);
+    background: var(--btn-hover);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    transition: transform 0.35s cubic-bezier(0.175,0.885,0.32,1.275);
+    z-index: 10;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+  }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .task-section {
+    margin-bottom: 20px;
+  }
+  .task-input-row {
+    display: flex;
+    gap: 8px;
+  }
+  .task-input-row input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+  }
+  .task-input-row input:focus { border-color: var(--pomodoro); }
+  .task-input-row button {
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: none;
+    background: var(--btn-bg);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .task-input-row button:hover { background: var(--btn-hover); }
+
+  .current-task {
+    margin-top: 12px;
+    font-size: 15px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 20px;
+  }
+  .current-task .task-name { color: #fff; font-weight: 500; }
+  .current-task .clear-task {
+    background: none; border: none; color: var(--text-secondary);
+    cursor: pointer; font-size: 14px; padding: 2px 6px;
+  }
+  .current-task .clear-task:hover { color: var(--pomodoro); }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🍅 番茄钟</h1>
+  <p class="subtitle">专注工作 · 高效休息</p>
+
+  <!-- Task -->
+  <div class="task-section">
+    <div class="task-input-row">
+      <input type="text" id="taskInput" placeholder="当前任务..." maxlength="60">
+      <button id="setTaskBtn">设置</button>
+    </div>
+    <div class="current-task" id="currentTaskDisplay">
+      <span id="taskIcon"></span>
+      <span class="task-name" id="taskName"></span>
+      <button class="clear-task" id="clearTaskBtn" style="display:none;">✕</button>
+    </div>
+  </div>
+
+  <!-- Mode tabs -->
+  <div class="tabs">
+    <button class="tab active pomodoro" data-mode="pomodoro">🍅 专注</button>
+    <button class="tab short" data-mode="short">☕ 短休息</button>
+    <button class="tab long" data-mode="long">🌿 长休息</button>
+  </div>
+
+  <!-- Timer -->
+  <div class="timer-wrapper">
+    <svg viewBox="0 0 260 260">
+      <circle class="bg-circle" cx="130" cy="130" r="120"/>
+      <circle class="progress-ring" id="progressRing" cx="130" cy="130" r="120"
+              stroke-dasharray="753.98" stroke-dashoffset="0"/>
+    </svg>
+    <div class="timer-text">
+      <div class="time-display" id="timeDisplay">25:00</div>
+      <div class="time-status" id="statusText">准备开始</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn" id="resetBtn" title="重置">⟳</button>
+    <button class="btn btn-play" id="playBtn" title="开始">▶</button>
+    <button class="btn" id="skipBtn" title="跳过">⏭</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value" id="completedCount">0</div>
+      <div class="stat-label">完成番茄</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="totalFocus">0min</div>
+      <div class="stat-label">总专注时间</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="streakCount">0</div>
+      <div class="stat-label">连续天数</div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <button class="settings-toggle" id="settingsToggle" title="设置">⚙</button>
+  <div class="settings" id="settingsPanel">
+    <div class="setting-row">
+      <span>🍅 专注时间（分钟）</span>
+      <input type="number" id="setPomodoro" value="25" min="1" max="120">
+    </div>
+    <div class="setting-row">
+      <span>☕ 短休息（分钟）</span>
+      <input type="number" id="setShort" class="t-short" value="5" min="1" max="60">
+    </div>
+    <div class="setting-row">
+      <span>🌿 长休息（分钟）</span>
+      <input type="number" id="setLong" class="t-long" value="15" min="1" max="60">
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── State ──
+  const CIRCUMFERENCE = 2 * Math.PI * 120; // ~753.98
+
+  let state = {
+    mode: 'pomodoro',          // 'pomodoro' | 'short' | 'long'
+    durations: {
+      pomodoro: 25 * 60,
+      short: 5 * 60,
+      long: 15 * 60,
+    },
+    remaining: 25 * 60,        // seconds
+    total: 25 * 60,
+    running: false,
+    completedPomodoros: 0,
+    totalFocusSeconds: 0,
+    currentTask: '',
+  };
+
+  let intervalId = null;
+  let audioCtx = null;
+
+  // ── DOM refs ──
+  const $ = (sel) => document.querySelector(sel);
+
+  const timeDisplay    = $('#timeDisplay');
+  const statusText     = $('#statusText');
+  const progressRing   = $('#progressRing');
+  const playBtn        = $('#playBtn');
+  const resetBtn       = $('#resetBtn');
+  const skipBtn        = $('#skipBtn');
+  const tabs           = document.querySelectorAll('.tab');
+  const completedCount = $('#completedCount');
+  const totalFocus     = $('#totalFocus');
+  const streakCount    = $('#streakCount');
+  const toastEl        = $('#toast');
+  const settingsToggle = $('#settingsToggle');
+  const settingsPanel  = $('#settingsPanel');
+  const taskInput      = $('#taskInput');
+  const setTaskBtn     = $('#setTaskBtn');
+  const taskName       = $('#taskName');
+  const taskIcon       = $('#taskIcon');
+  const clearTaskBtn   = $('#clearTaskBtn');
+
+  // ── Load from localStorage ──
+  function loadState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pomodoro-state'));
+      if (saved) {
+        state.durations = saved.durations || state.durations;
+        state.completedPomodoros = saved.completedPomodoros || 0;
+        state.totalFocusSeconds = saved.totalFocusSeconds || 0;
+        state.currentTask = saved.currentTask || '';
+      }
+    } catch(e) { /* ignore */ }
+    state.remaining = state.durations[state.mode];
+    state.total = state.remaining;
+  }
+
+  function saveState() {
+    localStorage.setItem('pomodoro-state', JSON.stringify({
+      durations: state.durations,
+      completedPomodoros: state.completedPomodoros,
+      totalFocusSeconds: state.totalFocusSeconds,
+      currentTask: state.currentTask,
+    }));
+  }
+
+  // ── Render ──
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function updateDisplay() {
+    timeDisplay.textContent = formatTime(state.remaining);
+
+    const offset = CIRCUMFERENCE * (1 - state.remaining / state.total);
+    progressRing.style.strokeDashoffset = offset;
+
+    // Ring color
+    progressRing.classList.remove('short', 'long');
+    if (state.mode === 'short') progressRing.classList.add('short');
+    if (state.mode === 'long')  progressRing.classList.add('long');
+
+    // Tab
+    tabs.forEach(t => {
+      t.classList.toggle('active', t.dataset.mode === state.mode);
+    });
+
+    // Status text
+    const labels = { pomodoro: '专注中', short: '休息中', long: '长休息中' };
+    if (state.running) {
+      statusText.textContent = labels[state.mode];
+    } else if (state.remaining !== state.total) {
+      statusText.textContent = '已暂停';
+    } else {
+      statusText.textContent = '准备开始';
+    }
+
+    // Play btn
+    playBtn.textContent = state.running ? '⏸' : '▶';
+    playBtn.classList.toggle('running', state.running);
+
+    // Stats
+    completedCount.textContent = state.completedPomodoros;
+    totalFocus.textContent = Math.floor(state.totalFocusSeconds / 60) + 'min';
+    updateStreak();
+
+    // Task display
+    if (state.currentTask) {
+      taskName.textContent = state.currentTask;
+      taskIcon.textContent = '📌';
+      clearTaskBtn.style.display = 'inline';
+    } else {
+      taskName.textContent = '暂无任务';
+      taskIcon.textContent = '';
+      clearTaskBtn.style.display = 'none';
+    }
+
+    // Settings inputs
+    $('#setPomodoro').value = state.durations.pomodoro / 60;
+    $('#setShort').value    = state.durations.short / 60;
+    $('#setLong').value     = state.durations.long / 60;
+  }
+
+  function updateStreak() {
+    const raw = localStorage.getItem('pomodoro-days');
+    const days = raw ? JSON.parse(raw) : [];
+    const today = new Date().toISOString().slice(0,10);
+    // Clean old entries
+    const recent = days.filter(d => {
+      const diff = (new Date(today) - new Date(d)) / 86400000;
+      return diff >= 0 && diff <= 30;
+    });
+    if (!recent.includes(today) && state.completedPomodoros > 0) {
+      recent.push(today);
+    }
+    recent.sort();
+    // Count streak
+    let streak = 0;
+    let check = new Date(today);
+    for (let i = recent.length - 1; i >= 0; i--) {
+      const expected = check.toISOString().slice(0,10);
+      if (recent[i] === expected || recent.includes(expected)) {
+        streak++;
+        check.setDate(check.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    streakCount.textContent = streak;
+    localStorage.setItem('pomodoro-days', JSON.stringify(recent));
+  }
+
+  // ── Audio ──
+  function playBeep(freq, duration, type = 'sine') {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  }
+
+  function playAlarm() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Pleasant 3-tone chime
+    const now = audioCtx.currentTime;
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = now + i * 0.2;
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.5);
+    });
+  }
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastEl._timeout);
+    toastEl._timeout = setTimeout(() => toastEl.classList.remove('show'), 2500);
+  }
+
+  // ── Timer logic ──
+  function tick() {
+    if (!state.running) return;
+
+    if (state.remaining <= 0) {
+      finishSession();
+      return;
+    }
+    state.remaining--;
+    updateDisplay();
+
+    // Tick sound on last 3 seconds
+    if (state.remaining <= 3 && state.remaining > 0) {
+      playBeep(880, 0.1);
+    }
+  }
+
+  function startTimer() {
+    if (state.remaining <= 0) {
+      resetTimer();
+    }
+    state.running = true;
+    updateDisplay();
+    clearInterval(intervalId);
+    intervalId = setInterval(tick, 1000);
+
+    // Resume audio context
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function pauseTimer() {
+    state.running = false;
+    clearInterval(intervalId);
+    updateDisplay();
+  }
+
+  function resetTimer() {
+    pauseTimer();
+    state.remaining = state.durations[state.mode];
+    state.total = state.remaining;
+    updateDisplay();
+  }
+
+  function finishSession() {
+    pauseTimer();
+    playAlarm();
+
+    if (state.mode === 'pomodoro') {
+      state.completedPomodoros++;
+      state.totalFocusSeconds += state.durations.pomodoro;
+      showToast(`🍅 番茄完成！已专注 ${state.durations.pomodoro / 60} 分钟`);
+      // Auto-switch: after every 4 pomodoros, long break; else short break
+      if (state.completedPomodoros % 4 === 0) {
+        switchMode('long');
+      } else {
+        switchMode('short');
+      }
+    } else {
+      showToast(state.mode === 'long' ? '🌿 长休息结束，开始新的番茄吧！' : '☕ 休息结束，准备下一个番茄！');
+      switchMode('pomodoro');
+    }
+
+    // Auto-start next session
+    startTimer();
+    saveState();
+  }
+
+  function switchMode(mode) {
+    state.mode = mode;
+    state.remaining = state.durations[mode];
+    state.total = state.remaining;
+    state.running = false;
+    clearInterval(intervalId);
+    updateDisplay();
+  }
+
+  function skipSession() {
+    pauseTimer();
+    if (state.mode === 'pomodoro') {
+      if (state.completedPomodoros % 4 === 0 && state.completedPomodoros > 0) {
+        switchMode('long');
+      } else {
+        switchMode('short');
+      }
+    } else {
+      switchMode('pomodoro');
+    }
+    showToast('⏭ 已跳过当前阶段');
+    updateDisplay();
+  }
+
+  // ── Events ──
+  playBtn.addEventListener('click', () => {
+    if (state.running) {
+      pauseTimer();
+    } else {
+      startTimer();
+    }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    resetTimer();
+    showToast('🔄 计时器已重置');
+  });
+
+  skipBtn.addEventListener('click', skipSession);
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const mode = tab.dataset.mode;
+      switchMode(mode);
+      saveState();
+    });
+  });
+
+  // Settings
+  settingsToggle.addEventListener('click', () => {
+    settingsPanel.classList.toggle('open');
+  });
+
+  function updateDuration(mode, value) {
+    const minutes = Math.max(1, Math.min(120, parseInt(value) || 1));
+    state.durations[mode] = minutes * 60;
+    if (state.mode === mode) {
+      state.remaining = state.durations[mode];
+      state.total = state.remaining;
+    }
+    updateDisplay();
+    saveState();
+  }
+
+  $('#setPomodoro').addEventListener('change', (e) => updateDuration('pomodoro', e.target.value));
+  $('#setShort').addEventListener('change',    (e) => updateDuration('short', e.target.value));
+  $('#setLong').addEventListener('change',     (e) => updateDuration('long', e.target.value));
+
+  // Task
+  setTaskBtn.addEventListener('click', () => {
+    const val = taskInput.value.trim();
+    if (val) {
+      state.currentTask = val;
+      taskInput.value = '';
+      updateDisplay();
+      saveState();
+    }
+  });
+  taskInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') setTaskBtn.click();
+  });
+  clearTaskBtn.addEventListener('click', () => {
+    state.currentTask = '';
+    updateDisplay();
+    saveState();
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    switch (e.code) {
+      case 'Space':
+        e.preventDefault();
+        state.running ? pauseTimer() : startTimer();
+        break;
+      case 'KeyR':
+        resetTimer();
+        break;
+      case 'KeyS':
+        skipSession();
+        break;
+      case 'Digit1': switchMode('pomodoro'); break;
+      case 'Digit2': switchMode('short'); break;
+      case 'Digit3': switchMode('long'); break;
+    }
+    saveState();
+  });
+
+  // Notification permission
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  function sendNotification(title, body) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '🍅' });
+    }
+  }
+
+  // Override showToast to also send notifications for completions
+  const origShowToast = showToast;
+  showToast = function(msg) {
+    origShowToast(msg);
+    if (msg.includes('番茄完成')) {
+      sendNotification('🍅 番茄完成！', msg);
+    }
+  };
+
+  // ── Init ──
+  loadState();
+  updateDisplay();
+
+  // Set document title
+  function updateTitle() {
+    const status = state.running ? '▶ ' : '';
+    document.title = `${status}${formatTime(state.remaining)} - 番茄钟`;
+  }
+  const origUpdate = updateDisplay;
+  updateDisplay = function() {
+    origUpdate();
+    updateTitle();
+  };
+  updateDisplay();
+  updateTitle();
+</script>
+</body>
+</html>
